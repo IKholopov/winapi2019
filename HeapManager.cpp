@@ -3,7 +3,7 @@
 #include "HeapManager.h"
 
 HeapManager::HeapManager(size_t min_size, size_t max_size) : min_commited(min_size), reserved_size(max_size), commited_size(min_size) {
-	assert(max_size > min_size && min_size > 0);
+	assert(max_size > min_size);
 	start = VirtualAlloc(NULL, reserved_size, MEM_RESERVE, PAGE_READWRITE);
 	assert(start != 0);
 	assert(VirtualAlloc(start, commited_size, MEM_COMMIT, PAGE_READWRITE) != 0);
@@ -14,8 +14,8 @@ HeapManager::HeapManager(size_t min_size, size_t max_size) : min_commited(min_si
 }
 
 HeapManager::~HeapManager() {
-	for (auto i = allblocks.begin(); i != allblocks.end(); i = allblocks.erase(i))
-		delete *i;
+	for (auto &i : allblocks) //.begin(); i != allblocks.end(); i = allblocks.erase(i))
+		delete i;
 	VirtualFree(start, 0, MEM_RELEASE);
 }
 
@@ -45,7 +45,7 @@ void * HeapManager::Alloc(size_t size) {
 		//newblock->inmap_iter = freeblocks.insert(std::make_pair(size, newblock));
 		newblock->inlist_iter = allblocks.insert(allblocks.end(), newblock);
 		occupiedblocks[newblock_ptr] = newblock;
-		return newblock->ptr;
+		return newblock_ptr;
 	}
 
 	block* current_block = iter_found->second;
