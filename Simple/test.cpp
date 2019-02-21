@@ -1,4 +1,3 @@
-#include <random>
 #include <algorithm>
 #include <chrono>
 #include <ctime>
@@ -37,8 +36,13 @@ TEST(Simple, OneBlock) {
 
 TEST(Simple, MergeBlocks) {
 	auto allocator = CHeapManager(0, PageSize);
-	size_t size1 = (std::rand() % (PageSize / 8)) * 8;
-	size_t size2 = (std::rand() % (PageSize / 8)) * 8;
+
+	std::random_device rd;  
+	std::mt19937 gen(rd()); 
+	std::uniform_int_distribution<> dis(1, PageSize / 16);
+
+	size_t size1 = dis(gen) * 8;
+	size_t size2 = dis(gen) * 8;
 	void* ptr = allocator.Alloc(size1);
 	void* midPtr = allocator.Alloc(size2);
 
@@ -49,6 +53,7 @@ TEST(Simple, MergeBlocks) {
 	expectedInfo.push_back({ size1 + size2, true });
 
 	allocator.GetBlockInfo(info);
+	std::sort(info.begin(), info.end());
 	ASSERT_EQ(info, expectedInfo);
 
 	expectedInfo.clear();
@@ -60,16 +65,23 @@ TEST(Simple, MergeBlocks) {
 }
 
 TEST(Simple, StressRandom) {
-	auto allocator = CHeapManager(0, 10000 * PageSize);
+	size_t size = 10000 * PageSize;
+	auto allocator = CHeapManager(0, size);
 	std::vector<void*> ptrs;
 	size_t iterations = 1000;
+
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution<> dis(1, size / iterations / 8);
+	std::uniform_int_distribution<> unfairCoin(0, 2);
+
 	for (size_t i = 0; i < iterations; ++i) {
-		size_t size = (std::rand() % (PageSize / 64) + 1) * 8;
+		size_t size = dis(gen) * 8;
 		void* ptr = allocator.Alloc(size);
 		ASSERT_NE(ptr, nullptr);
 		ptrs.push_back(ptr);
-		if (std::rand() % 3 == 0) {
-			size_t index = std::rand() % ptrs.size();
+		if (ptrs.size() > 0 && unfairCoin(gen) == 0) {
+			size_t index = std::uniform_int_distribution<>(0, ptrs.size() - 1)(gen);
 			allocator.Free(ptrs[index]);
 			ptrs.erase(ptrs.begin() + index);
 		}
@@ -111,6 +123,7 @@ TEST(Simple, OverloadedNew) {
 	ASSERT_LE(elapsed_secs, elapsed_secs1 * 10);
 }
 
+/*
 TEST(Simple, PlacementNew) {
 	size_t num = 1000;
 	size_t iterations = 6000;
@@ -133,7 +146,7 @@ TEST(Simple, PlacementNew) {
 
 	ASSERT_LE(time, standartTime * 10);
 }
-
+*/
 
 
 int main(int argc, char **argv) {
