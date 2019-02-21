@@ -6,6 +6,8 @@
 #include <vector>
 #include <functional>
 #include <list>
+#include <random>
+
 #include "BlockNode.h"
 
 void defaultLimitInitializer(std::vector<DWORD> & limits, DWORD size);
