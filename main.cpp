@@ -5,16 +5,11 @@
 HeapManager* HM;
 
 void* new_alloc(size_t s) {
-	void* ptr = static_cast<void*>(new char[s]);
-	return ptr;
+	return static_cast<void*>(new char[s]);
 }
 
 void new_free(void* ptr) {
 	delete[] ptr;
-}
-
-void my_alloc(size_t s) {
-
 }
 
 void* hm_alloc(size_t s) {
@@ -28,22 +23,38 @@ void hm_free(void* ptr) {
 int main() {
 	
 	Tester test;
-	int test_allocations_num = 30;
-	int sum_allocation_size = 100; //MBytes
+	int allocations_num = 100;
+	int sum_allocation_size = 200; //MBytes
+	std::cout << "allocatios num: " << allocations_num << std::endl;
+	std::cout << "sum allocation size: " << sum_allocation_size << "MB" << std::endl;
 
-	size_t max_allocated = test.AddRandomCommands(sum_allocation_size * 1024 * 1024, test_allocations_num);
-	std::cout << "Random testing sheme: " << std::endl;
-	test.PrintCommands();
-
-	std::cout << "max allocated at moment: " <<  max_allocated / 1024 / 1024 << "MB" << std::endl;
+	//Генерирует список команд из alloc/free (не исполняя). Длинна списка = 2*allocations_num
+	//Суммарное кол-во памяти, которое запросят команды из списка - sum_allocation_size. 
+	//Возврощает сколько памяти максимально в один момент будет запрошено во время теста
+	size_t max_allocated = test.NewRandomCommands(sum_allocation_size * 1024 * 1024, allocations_num); 
 	
+	//Раскомментировать для вывода списока сгенерированных команд 
+	//std::cout << std::endl << "Random testing sheme: " << std::endl;
+	//test.PrintCommands(); 
+	
+	//Добавляем сравниваемые аллокаторы
 	test.AddAllocator(&new_alloc, &new_free, "new");
 	HM = new HeapManager(max_allocated, 10 * max_allocated);
 	test.AddAllocator(&hm_alloc, &hm_free, "HeapManager");
 
-	std::cout << std::endl << "Start competition" << std::endl;
+	std::cout << std::endl << "First competition" << std::endl;
+	std::cout << "(max allocated at moment: " << max_allocated / 1024 / 1024 << "MB)" << std::endl;
+	test.Start();
+
+	std::cout << std::endl << "Increase allocations num to 100000" << std::endl;
+	allocations_num = 100000;
+	max_allocated = test.NewRandomCommands(sum_allocation_size * 1024 * 1024, allocations_num);
+
+	std::cout << std::endl << "Second competition" << std::endl;
+	std::cout << "(max allocated at moment: " << max_allocated / 1024 / 1024 << "MB)" << std::endl;
 	test.Start();
 	
 	int z; std::cin >> z;
+
 	return 0;
 }

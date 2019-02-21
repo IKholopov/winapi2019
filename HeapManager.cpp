@@ -87,6 +87,7 @@ void HeapManager::Free(void * ptr) {
 			newblock_size += left->size;
 			freeblocks.erase(left->inmap_iter);
 			allblocks.erase(left->inlist_iter);
+			delete left;
 			need_delete = true;
 		}
 	}
@@ -98,6 +99,7 @@ void HeapManager::Free(void * ptr) {
 			newblock_size += right->size;
 			freeblocks.erase(right->inmap_iter);
 			allblocks.erase(right->inlist_iter);
+			delete right;
 			need_delete = true;
 		}
 	}
@@ -115,7 +117,6 @@ void HeapManager::Free(void * ptr) {
 
 	if (need_delete) {
 		iter = allblocks.erase(block_to_free->inlist_iter);
-		if (iter != allblocks.begin()) --iter;
 		delete block_to_free;
 		if (need_create) {
 			block* newblock = new block(newblock_ptr, newblock_size, 1);
