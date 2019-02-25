@@ -23,10 +23,14 @@ public:
 		std::function<void(std::vector<DWORD> &, DWORD)> limitInitializer = defaultLimitInitializer);
 	~CHeapManager();
 
+	void* Alloc(int size, std::string file, int line);
 	void* Alloc(int size);
 	void Free(void* ptr);
 
 	void GetBlockInfo(std::vector<std::pair<size_t, bool>>& info);
+
+	static const size_t canarySize = 32;
+	static const uint32_t canary = 0xDEADBEEF;
 
 private:
 	size_t minSize;
@@ -50,3 +54,7 @@ private:
 	void decommitPages(CBlockNode * node);
 	
 };
+
+#ifndef NDEBUG
+#define Alloc(x) Alloc(x, __FILE__, __LINE__)
+#endif

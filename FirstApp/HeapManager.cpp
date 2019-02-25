@@ -2,6 +2,7 @@
 #include <iostream>
 #include <assert.h>
 #include <functional>
+#include <string> 
 
  void defaultLimitInitializer(std::vector<DWORD> & limits, DWORD size) {
 	limits.push_back(size);
@@ -48,9 +49,21 @@ CHeapManager::~CHeapManager()
 	assert(result);
 }
 
+#ifndef NDEBUG
+#define Alloc(x) Alloc(x)
+#endif
 void * CHeapManager::Alloc(int size)
 {
+	return Alloc(size, "", -1);
+}
+
+#ifndef NDEBUG
+#define Alloc(x, y, z) Alloc(x, y, z)
+#endif
+void * CHeapManager::Alloc(int size, std::string file, int line)
+{
 	size = roundUp(size, 4);
+	size += 2 * canarySize;
 	assert(size <= maxSize && size > 0);
 	int index = findSection(size);
 	while (index < sectionNumber) {
@@ -67,6 +80,8 @@ void * CHeapManager::Alloc(int size)
 		assert(node.size >= size);
 		sections[index].erase(blockIter);
 		nodePtr->free = false;
+		nodePtr->file = file;
+		nodePtr->line = line;
 
 		if (node.size != size) {
 			CBlockNode newNode(node.ptr + size, node.ptr, node.size - size, true);
@@ -81,15 +96,30 @@ void * CHeapManager::Alloc(int size)
 
 		LPVOID commited = VirtualAlloc(node.ptr, size, MEM_COMMIT, PAGE_READWRITE);
 		assert(commited);
-		return node.ptr;
+		uint32_t* place = reinterpret_cast<uint32_t*>(node.ptr);
+		*place = canary;
+		place = reinterpret_cast<uint32_t*>(node.ptr + size - canarySize);
+		*place = canary;
+		return node.ptr + canarySize;
 	}
 	assert(false);
 }
 
 void CHeapManager::Free(void * ptr)
 {
+	ptr = static_cast<char*>(ptr) - canarySize;
 	CBlockNode * nodePtr = findNode(ptr);
 	assert(ptr != nullptr);
+	std::string error_message = "Memory acces violation:\nFile: " + 
+		nodePtr->file + "\nLine: " + 
+		std::to_string(nodePtr->line);
+	if (*reinterpret_cast<uint32_t*>(nodePtr->ptr) != canary) {
+		throw std::out_of_range(error_message);
+	}
+	if (*reinterpret_cast<uint32_t*>(nodePtr->ptr + nodePtr->size - canarySize) != canary) {
+		throw std::out_of_range(error_message);
+
+	}
 	nodePtr->free = true;
 	CBlockNode * prev = findNode(nodePtr->prev_ptr);
 	CBlockNode * next = findNode(nodePtr->ptr + nodePtr->size);
