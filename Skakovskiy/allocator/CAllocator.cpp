@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "CAllocator.h"
 
 void* CAllocator::addInt(void* ptr, int delta) {
@@ -75,7 +74,7 @@ CAllocator::CAllocator(int min_size, int max_size) {
 }
 
 CAllocator::~CAllocator() {
-	if (freeSegments.size() != 1 || infoOfSegments[*freeSegments.begin()].prevInMemory != bufferPtr) {
+	if (freeSegments.size() != 1 || infoOfSegments[*freeSegments.begin()].PrevInMemory != bufferPtr) {
 		cerr << "Memory leak detected" << endl;
 	}
 	VirtualFree(bufferPtr, ptrsDiff(endBufferPtr, bufferPtr), MEM_RELEASE);
@@ -95,15 +94,15 @@ void* CAllocator::Alloc(int size) {
 		*it->second.begin(),
 		{
 			size,
-			oldSegmentInfo.prevInMemory
+			oldSegmentInfo.PrevInMemory
 		}
 	};
 
 	freeSegments.erase(resultSegment.ptr);
 
-	if (resultSegment.info.length != oldSegmentInfo.length) {
+	if (resultSegment.info.Length != oldSegmentInfo.Length) {
 		SegmentInfo nextSegmentInfo{
-			oldSegmentInfo.length - size,
+			oldSegmentInfo.Length - size,
 			resultSegment.ptr
 		};
 		Segment nextSegment{
@@ -113,8 +112,8 @@ void* CAllocator::Alloc(int size) {
 
 		freeSegments.insert(nextSegment.ptr);
 		infoOfSegments[nextSegment.ptr] = nextSegmentInfo;
-		infoOfSegments[resultSegment.ptr].length = size;
-		lengthToFreePointers[nextSegmentInfo.length].insert(nextSegment.ptr);
+		infoOfSegments[resultSegment.ptr].Length = size;
+		lengthToFreePointers[nextSegmentInfo.Length].insert(nextSegment.ptr);
 	}
 	deepEraseFromLengthToFreePointers(resultSegment.ptr, it);
 
@@ -134,8 +133,8 @@ void CAllocator::Free(void* ptr) {
 		return;
 	}
 
-	void* prev = iterInInfoOfSegments->second.prevInMemory;
-	void* next = addInt(ptr, iterInInfoOfSegments->second.length);
+	void* prev = iterInInfoOfSegments->second.PrevInMemory;
+	void* next = addInt(ptr, iterInInfoOfSegments->second.Length);
 
 	SegmentInfo prevSegmentInfo = infoOfSegments[prev];
 	SegmentInfo nextSegmentInfo;
@@ -143,52 +142,52 @@ void CAllocator::Free(void* ptr) {
 		nextSegmentInfo = infoOfSegments[next];
 	}
 
-	bool isPrevFree = freeSegments.count(prev);
-	bool isNextFree = freeSegments.count(next);
+	bool isPrevFree = (freeSegments.count(prev) != 0);
+	bool isNextFree = (freeSegments.count(next) != 0);
 	int actualLength;
 	if (isPrevFree && !isNextFree) {
-		actualLength = iterInInfoOfSegments->second.length + prevSegmentInfo.length;
+		actualLength = iterInInfoOfSegments->second.Length + prevSegmentInfo.Length;
 
 		infoOfSegments.erase(ptr);
-		infoOfSegments[prev].length = actualLength;
+		infoOfSegments[prev].Length = actualLength;
 		if (next != endBufferPtr) {
-			infoOfSegments[next].prevInMemory = prev;
+			infoOfSegments[next].PrevInMemory = prev;
 		}
 
-		deepEraseFromLengthToFreePointers(prev, prevSegmentInfo.length);
+		deepEraseFromLengthToFreePointers(prev, prevSegmentInfo.Length);
 	} else if (!isPrevFree && isNextFree) {
-		actualLength = iterInInfoOfSegments->second.length + nextSegmentInfo.length;
+		actualLength = iterInInfoOfSegments->second.Length + nextSegmentInfo.Length;
 
 		freeSegments.erase(next);
 		freeSegments.insert(ptr);
 
-		void* nextNext = addInt(next, nextSegmentInfo.length);
+		void* nextNext = addInt(next, nextSegmentInfo.Length);
 		if (nextNext != endBufferPtr) {
-			infoOfSegments[nextNext].prevInMemory = ptr;
+			infoOfSegments[nextNext].PrevInMemory = ptr;
 		}
 		infoOfSegments.erase(next);
-		infoOfSegments[ptr].length = actualLength;
+		infoOfSegments[ptr].Length = actualLength;
 
-		deepEraseFromLengthToFreePointers(next, nextSegmentInfo.length);
+		deepEraseFromLengthToFreePointers(next, nextSegmentInfo.Length);
 	}
 	else if (isPrevFree && isNextFree) {
-		actualLength = iterInInfoOfSegments->second.length + nextSegmentInfo.length +
-			prevSegmentInfo.length;
+		actualLength = iterInInfoOfSegments->second.Length + nextSegmentInfo.Length +
+			prevSegmentInfo.Length;
 
 		freeSegments.erase(next);
 
-		void* nextNext = addInt(next, nextSegmentInfo.length);
+		void* nextNext = addInt(next, nextSegmentInfo.Length);
 		if (nextNext != endBufferPtr) {
-			infoOfSegments[nextNext].prevInMemory = prev;
+			infoOfSegments[nextNext].PrevInMemory = prev;
 		}
 		infoOfSegments.erase(ptr);
 		infoOfSegments.erase(next);
-		infoOfSegments[prev].length = actualLength;
+		infoOfSegments[prev].Length = actualLength;
 
-		deepEraseFromLengthToFreePointers(next, nextSegmentInfo.length);
-		deepEraseFromLengthToFreePointers(prev, prevSegmentInfo.length);
+		deepEraseFromLengthToFreePointers(next, nextSegmentInfo.Length);
+		deepEraseFromLengthToFreePointers(prev, prevSegmentInfo.Length);
 	} else {
-		actualLength = iterInInfoOfSegments->second.length;
+		actualLength = iterInInfoOfSegments->second.Length;
 
 		freeSegments.insert(ptr);
 	}
