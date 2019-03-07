@@ -1,5 +1,6 @@
+#include <iostream>
+
 #include "HeapManager.h"
-#include "iostream"
 
 CMemorySegment::CMemorySegment(char* prev,
 	char* dataPointer,
@@ -56,7 +57,7 @@ int HeapManager::roundValue( int value ) const
 char* HeapManager::tryGetPointer( int size )
 {
 	char* pointer = nullptr; 
-	std::set<CMemorySegment>::iterator iter = freeSegments.lower_bound( CMemorySegment( 0, 0, size ) );
+	auto iter = freeSegments.lower_bound( CMemorySegment( 0, 0, size ) );
 	if( iter != freeSegments.end() ) {
 		pointer = iter->dataPointer;
 		int restSize = iter->size - size;
@@ -86,15 +87,41 @@ void* HeapManager::Alloc( int size_ )
 
 void HeapManager::decommitPages( const CMemorySegment& memorySegment )
 {
-	long long first = reinterpret_cast<long long>( memorySegment.dataPointer ) / pageSize;
-	long long rest = reinterpret_cast<long long>( memorySegment.dataPointer ) % pageSize;
+	__int64 first = reinterpret_cast<__int64>( memorySegment.dataPointer ) / pageSize;
+	__int64 rest = reinterpret_cast<__int64>( memorySegment.dataPointer ) % pageSize;
 	if( rest != 0 ) {
 		first+= 1;
 	}
 
-	long long last = first + memorySegment.size / pageSize;
+	__int64 last = first + memorySegment.size / pageSize;
 
 	VirtualFree(dataPointer + pageSize * first, ( last - first ) * pageSize, MEM_DECOMMIT);	
+}
+
+void HeapManager::handleNext(CMemorySegment& segment, CMemorySegment& newSegment)
+{
+	auto nextSegment = allSegments.find( segment.dataPointer + segment.size );
+	if( nextSegment != allSegments.end() && !nextSegment->second.isBusy ) {
+		newSegment.size += nextSegment->second.size;
+		auto nextNextSegment = allSegments.find( newSegment.dataPointer + newSegment.size );
+		if ( nextNextSegment != allSegments.end() ) {
+			nextNextSegment->second.prev = newSegment.dataPointer;
+		}
+
+		allSegments.erase( nextSegment );
+	}
+}
+
+void HeapManager::handlePrev(CMemorySegment& segment, CMemorySegment& newSegment)
+{
+	auto prevSegment = allSegments.find( segment.prev );
+	if( prevSegment != allSegments.end() && !prevSegment->second.isBusy ) {
+		newSegment.dataPointer = dataPointer;
+		newSegment.prev = prevSegment->second.prev;
+		newSegment.size += prevSegment->second.size;
+
+		allSegments.erase( prevSegment );
+	}
 }
 
 void HeapManager::Free(void* ptr)
@@ -115,26 +142,9 @@ void HeapManager::Free(void* ptr)
 	
 	busyPointers.erase( pointer );
 	allSegments.erase( segmentIter );
-
-	auto prevSegment = allSegments.find( segment.prev );
-	if( prevSegment != allSegments.end() && !prevSegment->second.isBusy ) {
-		newSegment.dataPointer = dataPointer;
-		newSegment.prev = prevSegment->second.prev;
-		newSegment.size+= prevSegment->second.size;
-
-		allSegments.erase( prevSegment );
-	}
 	
-	auto nextSegment = allSegments.find( segment.dataPointer + segment.size );
-	if( nextSegment != allSegments.end() && !nextSegment->second.isBusy ) {
-		newSegment.size += nextSegment->second.size;
-		auto nextNextSegment = allSegments.find( newSegment.dataPointer + newSegment.size );
-		if ( nextNextSegment != allSegments.end() ) {
-			nextNextSegment->second.prev = newSegment.dataPointer;
-		}
-
-		allSegments.erase( nextSegment );
-	}
+	handleNext( segment, newSegment );
+	handleNext( segment, newSegment );
 
 	decommitPages( newSegment );
 

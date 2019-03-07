@@ -9,10 +9,10 @@
 //—труктура дл€ хранени€ свободных отрезков
 
 struct CMemorySegment {
-	char* prev{0};
-	char* dataPointer{0};
-	int size{0};
-	bool isBusy{false};
+	char* prev = 0;
+	char* dataPointer = 0;
+	int size = 0;
+	bool isBusy = false;
 
 	CMemorySegment() = default;
 	CMemorySegment(char* prev,
@@ -57,10 +57,10 @@ public:
 	void Free( void* ptr );
 
 private:
-	int pageSize{4096};
-	int maxSize{4096};
-	int minSize{1024};
-	char* dataPointer{0};
+	int pageSize = 4096;
+	int maxSize = 4096;
+	int minSize = 1024;
+	char* dataPointer = nullptr;
 	std::set<CMemorySegment> freeSegments;
 	std::map<char* , CMemorySegment> allSegments;
 	std::set<char*> busyPointers;
@@ -70,4 +70,6 @@ private:
 	int roundValue( int value ) const;
 	char* tryGetPointer( int size );
 	void decommitPages( const CMemorySegment& memorySegment );
+	void handleNext(CMemorySegment& segment, CMemorySegment& newSegment);
+	void handlePrev(CMemorySegment& segment, CMemorySegment& newSegment);
 };

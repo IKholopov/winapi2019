@@ -10,8 +10,8 @@
 
 void simpleTest( bool isCustom )
 {
-	std::random_device rd;
-	std::mt19937 gen(rd());
+	int seed = 5;
+	std::mt19937 gen(seed);
 	std::uniform_int_distribution<> uid(10, 50);
 
 	std::vector<char*> ptrs;
