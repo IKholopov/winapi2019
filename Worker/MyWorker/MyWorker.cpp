@@ -8,10 +8,135 @@
 #include <algorithm> 
 #include <cctype>
 #include <locale>
+#include <functional>
+#include <codecvt>
+#include <string>
+#include <iostream>
 
 #include "Manager.h"
 
 DWORD pId;
+
+using Routine = std::function<void()>;
+
+class Coroutine;
+void DoYield();
+
+Coroutine* currentCoro = nullptr;
+LPVOID initFiber = nullptr;
+
+class Coroutine {
+public:
+	Coroutine() = default;
+
+	void Setup(Routine routine_) {
+		routine = std::move(routine_);
+		if (!initFiber) {
+			initFiber = ConvertThreadToFiber(NULL);
+			if (initFiber == NULL) {
+				printf("ConvertThreadToFiber error (%d)\n", GetLastError());
+				return;
+			}
+		}
+		fiber = CreateFiber(0, proc, this);
+	}
+
+	~Coroutine() {
+		DeleteFiber(fiber);
+	}
+
+	bool Resume() {
+		prevCoro = currentCoro;
+		currentCoro = this;
+		if (completed) {
+			return false;
+		}
+		SwitchToFiber(fiber);
+		return true;
+	}
+
+	void Suspend() {
+		currentCoro = prevCoro;
+		SwitchToFiber(prevCoro ? prevCoro->fiber : initFiber);
+	}
+
+	bool Completed() const {
+		return completed;
+	}
+
+private:
+	static VOID __stdcall proc(LPVOID data) {
+		reinterpret_cast<Coroutine*>(data)->routine();
+		reinterpret_cast<Coroutine*>(data)->completed = true;
+		DoYield();
+	}
+
+private:
+	Routine routine;
+	bool completed{ false };
+
+	Coroutine* prevCoro{ nullptr };
+	LPVOID fiber;
+};
+
+void DoYield() {
+	currentCoro->Suspend();
+}
+
+std::string ReadText(HANDLE handle);
+static inline void trim(std::string &s);
+
+class CFilter {
+public:
+	CFilter(HANDLE text, HANDLE dict) {
+		std::string textBuffer = ReadText(text);
+		std::string dictBuffer = ReadText(dict);
+
+		std::string delim = " ";
+		size_t start = 0;
+		auto end = textBuffer.find(delim);
+		while (end != std::string::npos) {
+			words.emplace_back(textBuffer.substr(start, end - start));
+			start = end + delim.length();
+			end = textBuffer.find(delim, start);
+		}
+		words.emplace_back(textBuffer.substr(start, end));
+
+		start = 0;
+		end = dictBuffer.find(delim);
+		while (end != std::string::npos) {
+			dictionary.emplace(dictBuffer.substr(start, end - start));
+			start = end + delim.length();
+			end = dictBuffer.find(delim, start);
+		}
+		dictionary.emplace(dictBuffer.substr(start, end));
+
+		auto func = [&]() {
+			for (auto word : words) {
+				trim(word);
+				if (dictionary.find(word) == dictionary.end()) {
+					yieldResult = " " + word;
+					DoYield();
+				}
+			}
+			yieldResult = "";
+			DoYield();
+		};
+		coro.Setup(func);
+	}
+
+	std::string GetNextWord() {
+		coro.Resume();
+		return yieldResult;
+	}
+
+private:
+	Coroutine coro;
+
+	std::string yieldResult;
+	std::vector<std::string> words;
+	std::unordered_set<std::string> dictionary;
+};
 
 static inline void ltrim(std::string &s) {
 	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
@@ -78,31 +203,15 @@ void RewriteFile(const std::string& newText, HANDLE handle) {
 }
 
 void DoFilterWords(HANDLE text, HANDLE dict) {
-	std::string textBuffer = ReadText(text);
-	std::string dictBuffer = ReadText(dict);
-	std::vector<std::string> words;
-	std::unordered_set<std::string> dictionary;
+	CFilter filter(text, dict);
+	std::string word;
+	std::string result;
 
-	std::string delim = " ";
-	size_t start = 0;
-	auto end = textBuffer.find(delim);
-	while (end != std::string::npos) {
-		words.emplace_back(textBuffer.substr(start, end - start));
-		start = end + delim.length();
-		end = textBuffer.find(delim, start);
+	while (!(word = filter.GetNextWord()).empty()) {
+		result.append(word);
 	}
-	words.emplace_back(textBuffer.substr(start, end));
 
-	start = 0;
-	end = dictBuffer.find(delim);
-	while (end != std::string::npos) {
-		dictionary.emplace(dictBuffer.substr(start, end - start));
-		start = end + delim.length();
-		end = dictBuffer.find(delim, start);
-	}
-	dictionary.emplace(dictBuffer.substr(start, end));
-	std::string newText = GetFilteredText(words, dictionary);
-	RewriteFile(newText, text);
+	RewriteFile(result, text);
 }
 
 std::string GetFilteredByThresholdText(const std::string& text, const std::unordered_map<char, size_t>& freq, size_t threshold) {
