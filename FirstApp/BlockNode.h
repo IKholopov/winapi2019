@@ -13,12 +13,12 @@ struct CBlockNode
 	CBlockNode(char* ptr_, char* prev_ptr_, size_t size_, bool free_) : 
 		CBlockNode(ptr_, prev_ptr_, size_, free_, "", -1)
 		{}
-	CBlockNode();
-	~CBlockNode();
+	CBlockNode() = default;
+	~CBlockNode() = default;
 
-	char * ptr;
+	char* ptr;
 	size_t size;
-	char * prev_ptr;
+	char* prev_ptr;
 	bool free;
 	std::string file;
 	int line;

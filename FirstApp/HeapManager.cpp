@@ -205,8 +205,3 @@ void CHeapManager::decommitPages(CBlockNode * node)
 		assert(result);
 	}
 }
-
-int main_() {
-	std::cout << "hello";
-	return 0;
-}
