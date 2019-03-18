@@ -13,13 +13,15 @@ HeapManager::HeapManager(size_t min_size, size_t max_size) : min_commited(min_si
 	newblock->inlist_iter = allblocks.insert(allblocks.end(), newblock);
 }
 
-HeapManager::~HeapManager() {
-	for (auto &i : allblocks) //.begin(); i != allblocks.end(); i = allblocks.erase(i))
+HeapManager::~HeapManager() 
+{
+	for (auto &i : allblocks)
 		delete i;
 	VirtualFree(start, 0, MEM_RELEASE);
 }
 
-void * HeapManager::Alloc(size_t size) {
+void* HeapManager::Alloc(size_t size) 
+{
 	//find min in maper
 	auto iter_found = freeblocks.lower_bound(size);
 	if (iter_found == freeblocks.end()) {
@@ -42,7 +44,6 @@ void * HeapManager::Alloc(size_t size) {
 		}
 
 		block* newblock = new block(newblock_ptr, size, 0);
-		//newblock->inmap_iter = freeblocks.insert(std::make_pair(size, newblock));
 		newblock->inlist_iter = allblocks.insert(allblocks.end(), newblock);
 		occupiedblocks[newblock_ptr] = newblock;
 		return newblock_ptr;
@@ -68,7 +69,8 @@ void * HeapManager::Alloc(size_t size) {
 	return occupied_block->ptr;
 }
 
-void HeapManager::Free(void * ptr) {
+void HeapManager::Free(void* ptr) 
+{
 	block* block_to_free = occupiedblocks[ptr];
 	assert(block_to_free != 0);
 	occupiedblocks.erase(ptr);
