@@ -24,7 +24,7 @@ int main() {
 	
 	Tester test;
 	int allocations_num = 100;
-	int sum_allocation_size = 200; //MBytes
+	int sum_allocation_size = 500; //MBytes
 	std::cout << "allocatios num: " << allocations_num << std::endl;
 	std::cout << "sum allocation size: " << sum_allocation_size << "MB" << std::endl;
 
@@ -39,7 +39,7 @@ int main() {
 	
 	//Добавляем сравниваемые аллокаторы
 	test.AddAllocator(&new_alloc, &new_free, "new");
-	HM = new HeapManager(max_allocated, 10 * max_allocated);
+	HM = new HeapManager(max_allocated, 5 * max_allocated);
 	test.AddAllocator(&hm_alloc, &hm_free, "HeapManager");
 
 	std::cout << std::endl << "First competition" << std::endl;
@@ -54,7 +54,7 @@ int main() {
 	std::cout << "(max allocated at moment: " << max_allocated / 1024 / 1024 << "MB)" << std::endl;
 	test.Start();
 	
-	int z; std::cin >> z;
-
+	//int z; std::cin >> z;
+	system("pause");
 	return 0;
 }

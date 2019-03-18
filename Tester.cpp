@@ -1,12 +1,13 @@
 #include "Tester.h"
 
 
-void Tester::AddAllocator(void*(*alloc)(size_t), void(*free)(void *), std::string name)
+void Tester::AddAllocator(std::function<void*(size_t)> alloc, std::function<void(void*)> free, std::string name)
 {
 	units.push_back(unit(alloc, free, name, this));
 }
 
-int Tester::AddRandomCommands(size_t sum_size, size_t allocs_num) {
+int Tester::AddRandomCommands(size_t sum_size, size_t allocs_num) 
+{
 	assert(sum_size >= allocs_num);
 
 	std::random_device rd;
@@ -53,7 +54,8 @@ int Tester::NewRandomCommands(size_t sum_size, size_t allocs_num)
 	return AddRandomCommands(sum_size, allocs_num);
 }
 
-void Tester::PrintCommands() {
+void Tester::PrintCommands() 
+{
 	if (commands.size() == 0) {
 		std::cout << "Generate commands first" << std::endl;
 		return;
@@ -66,7 +68,8 @@ void Tester::PrintCommands() {
 			std::cout << "free" << '(' << c.ptr_index << ')' << std::endl;
 }
 
-void Tester::Start() {
+void Tester::Start() 
+{
 	for (auto& u : units) {
 		ptrs.clear();
 		int start_time = clock();
@@ -75,14 +78,14 @@ void Tester::Start() {
 	}
 }
 
-Tester::unit::unit(void*(*alloc)(size_t), void(*free)(void *), std::string name, Tester* base) : alloc(alloc), free(free), name(name), base(base) {}
+Tester::unit::unit(std::function<void*(size_t)> alloc, std::function<void(void*)> free, std::string name, Tester* base) : alloc(alloc), free(free), name(name), base(base) {}
 
 void Tester::unit::operator()(command & c)
 {
 	if (c.type == 0)
-		(*free)(base->ptrs[c.ptr_index]);
+		free(base->ptrs[c.ptr_index]);
 	else 
-		base->ptrs.push_back((*alloc)(c.size));
+		base->ptrs.push_back(alloc(c.size));
 }
 
 Tester::command::command(size_t size) : size(size) {}

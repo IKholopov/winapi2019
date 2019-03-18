@@ -6,17 +6,14 @@
 #include <string>
 #include <assert.h>
 #include <time.h>
+#include <functional>
 
 class Tester {
 public:
-	void AddAllocator(void*(*alloc)(size_t), void(*free)(void*), std::string name);
-
+	void AddAllocator(std::function<void*(size_t)> alloc, std::function<void(void*)> free, std::string name);
 	int AddRandomCommands(size_t sum_size, size_t allocs_num);
-
 	int NewRandomCommands(size_t sum_size, size_t allocs_num);
-
 	void PrintCommands();
-
 	void Start();
 
 
@@ -29,11 +26,11 @@ private:
 	};
 	std::vector<void*> ptrs;
 	struct unit{
-		unit(void*(*alloc)(size_t), void(*free)(void*), std::string name, Tester* base);
+		unit(std::function<void*(size_t)> alloc, std::function<void(void*)> free, std::string name, Tester* base);
 		void operator() (command& c);
 		Tester* base;
-		void*(*alloc)(size_t);
-		void(*free)(void*);
+		std::function<void*(size_t)> alloc;
+		std::function<void(void*)> free;
 		std::string name;
 	};
 	std::vector<unit> units;
