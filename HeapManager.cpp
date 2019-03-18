@@ -8,19 +8,19 @@ HeapManager::HeapManager(size_t min_size, size_t max_size) : min_commited(min_si
 	assert(start != 0);
 	assert(VirtualAlloc(start, commited_size, MEM_COMMIT, PAGE_READWRITE) != 0);
 
-	block* newblock = new block(start, commited_size, 1);
+	Block* newblock = new Block(start, commited_size, 1);
 	newblock->inmap_iter = freeblocks.insert(std::make_pair(commited_size, newblock));
 	newblock->inlist_iter = allblocks.insert(allblocks.end(), newblock);
 }
 
-HeapManager::~HeapManager() 
+HeapManager::~HeapManager()
 {
 	for (auto &i : allblocks)
 		delete i;
 	VirtualFree(start, 0, MEM_RELEASE);
 }
 
-void* HeapManager::Alloc(size_t size) 
+void* HeapManager::Alloc(size_t size)
 {
 	//find min in maper
 	auto iter_found = freeblocks.lower_bound(size);
@@ -34,7 +34,7 @@ void* HeapManager::Alloc(size_t size)
 
 		if (allblocks.back()->free) {
 			newblock_ptr = allblocks.back()->ptr;
-			block* last_free = allblocks.back();
+			Block* last_free = allblocks.back();
 			freeblocks.erase(last_free->inmap_iter);
 			allblocks.erase(last_free->inlist_iter);
 			delete last_free;
@@ -43,22 +43,22 @@ void* HeapManager::Alloc(size_t size)
 			newblock_ptr = static_cast<char*>(allblocks.back()->ptr) + allblocks.back()->size;
 		}
 
-		block* newblock = new block(newblock_ptr, size, 0);
+		Block* newblock = new Block(newblock_ptr, size, 0);
 		newblock->inlist_iter = allblocks.insert(allblocks.end(), newblock);
 		occupiedblocks[newblock_ptr] = newblock;
 		return newblock_ptr;
 	}
 
-	block* current_block = iter_found->second;
+	Block* current_block = iter_found->second;
 
 	freeblocks.erase(iter_found);
 	auto iter = allblocks.erase(current_block->inlist_iter);
 
-	block* occupied_block = new block(current_block->ptr, size, 0);
+	Block* occupied_block = new Block(current_block->ptr, size, 0);
 	occupied_block->inlist_iter = allblocks.insert(iter, occupied_block);
 
 	if (current_block->size != size) {
-		block* free_block = new block(static_cast<char*>(current_block->ptr) + size, current_block->size - size, 1);
+		Block* free_block = new Block(static_cast<char*>(current_block->ptr) + size, current_block->size - size, 1);
 		free_block->inmap_iter = freeblocks.insert(std::make_pair(current_block->size - size, free_block));
 		free_block->inlist_iter = allblocks.insert(iter, free_block);
 	}
@@ -69,9 +69,9 @@ void* HeapManager::Alloc(size_t size)
 	return occupied_block->ptr;
 }
 
-void HeapManager::Free(void* ptr) 
+void HeapManager::Free(void* ptr)
 {
-	block* block_to_free = occupiedblocks[ptr];
+	Block* block_to_free = occupiedblocks[ptr];
 	assert(block_to_free != 0);
 	occupiedblocks.erase(ptr);
 
@@ -83,7 +83,7 @@ void HeapManager::Free(void* ptr)
 	auto iter = block_to_free->inlist_iter;
 
 	if (iter != allblocks.begin()) {
-		block* left = *(--iter);
+		Block* left = *(--iter);
 		if (left->free) {
 			newblock_ptr = left->ptr;
 			newblock_size += left->size;
@@ -96,7 +96,7 @@ void HeapManager::Free(void* ptr)
 
 	iter = block_to_free->inlist_iter;
 	if (++iter != allblocks.end()) {
-		block* right = *iter;
+		Block* right = *iter;
 		if (right->free) {
 			newblock_size += right->size;
 			freeblocks.erase(right->inmap_iter);
@@ -121,7 +121,7 @@ void HeapManager::Free(void* ptr)
 		iter = allblocks.erase(block_to_free->inlist_iter);
 		delete block_to_free;
 		if (need_create) {
-			block* newblock = new block(newblock_ptr, newblock_size, 1);
+			Block* newblock = new Block(newblock_ptr, newblock_size, 1);
 			newblock->inmap_iter = freeblocks.insert(std::make_pair(newblock_size, newblock));
 			newblock->inlist_iter = allblocks.insert(iter, newblock);
 		}
@@ -132,4 +132,4 @@ void HeapManager::Free(void* ptr)
 	}
 }
 
-HeapManager::block::block(void * ptr, size_t size, bool free) : ptr(ptr), size(size), free(free) {}
+HeapManager::Block::Block(void * ptr, size_t size, bool free) : ptr(ptr), size(size), free(free) {}
